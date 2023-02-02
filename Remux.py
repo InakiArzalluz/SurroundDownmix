@@ -18,7 +18,20 @@ extensions_dict = {'h264':'mp4', 'subrip':'srt', 'mjpeg':'jpg'} # mapeo de codec
 # type_dict = {'mp4':'v', 'srt':'s', 'jpg':'NoLoSe', 'eac3':'a', 'ac3':'a','mp2':'a', 'aac':'a', 'hevc':'v', 'ass':'s', 'otf':'NoLoSe', 'mp3':'a'}
 
 parentFolder = os.getcwd()
-dir_inputs = parentFolder+"\\A-Inputs"
+dir_inputs = os.path.join(parentFolder,"A-Inputs")
+dir_demux = os.path.join(parentFolder,"Demux")
+try:
+	os.mkdir(dir_inputs)
+	os.mkdir(dir_demux)
+	os.mkdir(os.path.join(parentFolder,"Remux"))
+except OSError as error:
+	if(error.errno != 17):
+		print(error)
+		print(errno.EEXIST)
+	else:
+		print("todo piola")
+os.system("pause")
+
 ffmpegExe = "\""+parentFolder+"\\Tools\\ffmpeg\\ffmpeg.exe\""
 for filename in os.listdir(dir_inputs):
 	print("--------------------------------------------- FFPROBE ---------------------------------------------")
@@ -83,9 +96,8 @@ for filename in os.listdir(dir_inputs):
 
 	print("--------------------------------------------- Downmixing ---------------------------------------------")
 
-	directory = parentFolder+"\\Demux"
-	for filename2 in os.listdir(directory):
-	    filepath = os.path.join(directory, filename2)
+	for filename2 in os.listdir(dir_demux):
+	    filepath = os.path.join(dir_demux, filename2)
 	    if os.path.isfile(filepath):
 	    	if (filename2.find("_downmix") != '-1'): #Dudoso, no se si -1 es un string o no
 		    	if('channels' in dict_dict_stream[filename2]  and dict_dict_stream[filename2]['channels']=='6'):
@@ -93,7 +105,7 @@ for filename in os.listdir(dir_inputs):
 		    		codec = dict_dict_stream[filename2]['codec_name']
 		    		# ffmpeg -i "sourcetrack.dts" -c dca -af "pan=stereo|c0=c2+0.30*c0+0.30*c4|c1=c2+0.30*c1+0.30*c5" "stereotrack.dts"
 		    		filenameNoExt=filename2.rsplit(sep=".")[0]
-		    		downmixCommand = ffmpegExe + " -i " + "\""+filepath+"\"" + " -c " + codec + " -af " + algoritmoDownix + " "  + "\""+directory+"\\"+filenameNoExt+"_downmix."+codec+"\""
+		    		downmixCommand = ffmpegExe + " -i " + "\""+filepath+"\"" + " -c " + codec + " -af " + algoritmoDownix + " "  + "\""+dir_demux+"\\"+filenameNoExt+"_downmix."+codec+"\""
 		    		subprocess.run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
 		    		dict_dict_stream[filenameNoExt+"_downmix."+codec] = dict_dict_stream[filename2]
 		    		del dict_dict_stream[filename2]
@@ -104,8 +116,8 @@ for filename in os.listdir(dir_inputs):
 	maps = metadata = imports = dispositions = ""
 	counter = 0
 	typeCounter_dict = {'v':0, 'a':0, 's':0, 'NoLoSe':0, 't':0}
-	for filename3 in os.listdir(directory):
-	    filepath = os.path.join(directory, filename3)
+	for filename3 in os.listdir(dir_demux):
+	    filepath = os.path.join(dir_demux, filename3)
 	    if os.path.isfile(filepath):
 	    	extension = filename3.rsplit(sep=".")[-1]
 	    	imports += " -i " + "\""+filepath+"\""
@@ -128,8 +140,8 @@ for filename in os.listdir(dir_inputs):
 	print(remuxCommand)
 	subprocess.run(remuxCommand, capture_output=True, shell=True, encoding="utf-8")
 
-	for filename2 in os.listdir(directory):
-	    filepath = os.path.join(directory, filename2)
+	for filename2 in os.listdir(dir_demux):
+	    filepath = os.path.join(dir_demux, filename2)
 	    if os.path.isfile(filepath):
 	    	os.remove(filepath)
 	os.system("cls")
