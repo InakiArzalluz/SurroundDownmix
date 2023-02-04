@@ -25,18 +25,15 @@ try:
 	os.mkdir(dir_demux)
 	os.mkdir(os.path.join(parentFolder,"Remux"))
 except OSError as error:
-	if(error.errno != 17):
+	if(error.errno != 17): # 17: "File already exists"
 		print(error)
-		print(errno.EEXIST)
-	else:
-		print("todo piola")
-os.system("pause")
 
 ffmpegExe = "\""+parentFolder+"\\Tools\\ffmpeg\\ffmpeg.exe\""
+mkvmergeExe = "\""+parentFolder+"\\Tools\\mkvtoolnix\\mkvmerge.exe\""
 for filename in os.listdir(dir_inputs):
 	print("--------------------------------------------- FFPROBE ---------------------------------------------")
 	print(filename)
-	ffprobeCommand = "\""+parentFolder+"\\Tools\\ffmpeg\\ffprobe.exe\" -v error -show_entries stream=index,codec_name,codec_type,channels:stream_tags=language,filename:disposition=default,forced \""+dir_inputs+"\\"+filename+"\""
+	ffprobeCommand = "\""+parentFolder+"\\Tools\\ffmpeg\\ffprobe.exe\" -v error -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language,filename:disposition=default \""+dir_inputs+"\\"+filename+"\""
 	str_Stdout = subprocess.run(ffprobeCommand, capture_output=True, shell=True, encoding="utf-8").stdout
 	list_Stdout = str_Stdout.rsplit(sep="[STREAM]\n")
 	list_streams = []
@@ -49,9 +46,7 @@ for filename in os.listdir(dir_inputs):
 	del list_Stdout
 	
 	print("--------------------------------------------- Demuxing ---------------------------------------------")
-	typeCounter_dict = {'v':0, 'a':0, 's':0, 'NoLoSe':0, 't':0}
 	streams = ""
-	attachments = ""
 	dict_dict_stream = {} # key=filename(que tiene un unico stream), value=dict de info de ese unico stream
 	for stream in list_streams:
 		stream_dict = {}
@@ -60,50 +55,30 @@ for filename in os.listdir(dir_inputs):
 		for info in infos:
 			dict_entry = info.rsplit(sep="=")
 			stream_dict[dict_entry[0]] = dict_entry[1]
-		codec = stream_dict["codec_name"]
-		file2Write=stream_dict["index"]+"_"+filename.rsplit(sep=".")[0]+"_"+stream_dict["codec_type"]
-
-		if('DISPOSITION:forced' in stream_dict and stream_dict['DISPOSITION:forced'] == '1'):
-			file2Write += "_forced"
-		if('TAG:language' in stream_dict):
-			file2Write += "_"+stream_dict['TAG:language']
-		codec = stream_dict["codec_name"]
-		if (codec in extensions_dict):
-			file2Write += "."+extensions_dict[codec] # por h264, subrip, etc.
-		else:
-			file2Write += "."+codec
-
-		if(stream_dict["codec_type"] == 'attachment'):
-			attachments += "-dump_attachment:" + stream_dict["index"] + " \""+parentFolder+"\\Demux\\" 
-			if("TAG:filename" in stream_dict):
-				file2Write = stream_dict["TAG:filename"]
-			attachments += file2Write+"\" "
-		else:
+		if(stream_dict["codec_type"] == "audio"):
+			codec = stream_dict["codec_name"]
+			file2Write=stream_dict["index"]+"_"+filename.rsplit(sep=".")[0]+"_"+stream_dict["codec_type"]
+			if('DISPOSITION:forced' in stream_dict and stream_dict['DISPOSITION:forced'] == '1'):
+				file2Write += "_forced"
+			if('TAG:language' in stream_dict):
+				file2Write += "_"+stream_dict['TAG:language']
+			file2Write += "."+stream_dict["codec_name"]
 			streams += "-map 0:" + stream_dict["index"] + " -c copy " +"\""+parentFolder+"\\Demux\\" +file2Write+"\" "
-		dict_dict_stream[file2Write]=stream_dict
-		print(file2Write)
+			dict_dict_stream[file2Write]=stream_dict
+			print(file2Write)
 
 	ffmpegCommand =	ffmpegExe + " -y -i " + "\""+parentFolder+"\\A-Inputs\\"+filename+"\" " + streams
-	print('\033[92m'+"ffmpegCommand: "+'\033[0m')
-	print(ffmpegCommand)
 	subprocess.run(ffmpegCommand, capture_output=True, shell=True, encoding="utf-8")
-	if(attachments != ""):
-		attachmentsCommand = ffmpegExe +" "+attachments+ "-i " + "\""+parentFolder+"\\A-Inputs\\"+filename+"\""
-		print('\033[92m'+"attachments command: "+'\033[0m')
-		print(attachmentsCommand)
-		subprocess.run(attachmentsCommand, capture_output=True, shell=True, encoding="utf-8")
 	# MkvExtractCommand = "\""+parentFolder+"\\Tools\\mkvtoolnix\\mkvextract.exe\"  \""+parentFolder+"\\A-Inputs\\"+filename+"\""
 
 	print("--------------------------------------------- Downmixing ---------------------------------------------")
-
 	for filename2 in os.listdir(dir_demux):
 	    filepath = os.path.join(dir_demux, filename2)
 	    if os.path.isfile(filepath):
-	    	if (filename2.find("_downmix") != '-1'): #Dudoso, no se si -1 es un string o no
+	    	if (filename2.find("_downmix") == -1):
 		    	if('channels' in dict_dict_stream[filename2]  and dict_dict_stream[filename2]['channels']=='6'):
 		    		print(filename2)
 		    		codec = dict_dict_stream[filename2]['codec_name']
-		    		# ffmpeg -i "sourcetrack.dts" -c dca -af "pan=stereo|c0=c2+0.30*c0+0.30*c4|c1=c2+0.30*c1+0.30*c5" "stereotrack.dts"
 		    		filenameNoExt=filename2.rsplit(sep=".")[0]
 		    		downmixCommand = ffmpegExe + " -i " + "\""+filepath+"\"" + " -c " + codec + " -af " + algoritmoDownix + " "  + "\""+dir_demux+"\\"+filenameNoExt+"_downmix."+codec+"\""
 		    		subprocess.run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
@@ -112,39 +87,36 @@ for filename in os.listdir(dir_inputs):
 		    		os.remove(filepath)
 	    		
 	print("--------------------------------------------- Remuxing ---------------------------------------------")
-
-	maps = metadata = imports = dispositions = ""
+	maps = metadata = imports = dispositions = delay = arguments = ""
 	counter = 0
 	typeCounter_dict = {'v':0, 'a':0, 's':0, 'NoLoSe':0, 't':0}
 	for filename3 in os.listdir(dir_demux):
 	    filepath = os.path.join(dir_demux, filename3)
 	    if os.path.isfile(filepath):
 	    	extension = filename3.rsplit(sep=".")[-1]
-	    	imports += " -i " + "\""+filepath+"\""
-	    	maps += " -map "+str(counter)+":0"
-	    	metadataType = dict_dict_stream[filename3]['codec_type'][0]
 	    	if('TAG:language' in dict_dict_stream[filename3]):
-	    		metadata += " -metadata:s:"+metadataType+":"+str(typeCounter_dict[metadataType])+" language="+dict_dict_stream[filename3]['TAG:language']
+	    		arguments += " --language 0:" + dict_dict_stream[filename3]['TAG:language']
 
 	    	if('DISPOSITION:default' in dict_dict_stream[filename3] and dict_dict_stream[filename3]['DISPOSITION:default'] == '1'):
 	    		print("sets "+ filename3 + " as default " +dict_dict_stream[filename3]['codec_type'])
-	    		dispositions += " -disposition:"+metadataType+":"+str(typeCounter_dict[metadataType])+" +default"
+	    		arguments += " --default-track-flag 0:1"
+	    	else:
+	    		arguments += " --default-track-flag 0:0"
 
-	    	if('DISPOSITION:forced' in dict_dict_stream[filename3] and dict_dict_stream[filename3]['DISPOSITION:forced'] == '1'):
-	    		print("sets "+ filename3 + " as forced " +dict_dict_stream[filename3]['codec_type'])
-	    		dispositions+="+forced"
-	    		#dispositions += " -disposition:"+metadataType+":"+str(typeCounter_dict[metadataType])+" forced"
-	    	typeCounter_dict[dict_dict_stream[filename3]['codec_type'][0]] +=1
-	    	counter += 1
-	remuxCommand = ffmpegExe + imports + " -c copy" + maps + metadata + dispositions + " \""+parentFolder+"\\Remux\\"+filename+"\""
-	print(remuxCommand)
+	    	if('start_time' in dict_dict_stream[filename3] and float(dict_dict_stream[filename3]['start_time']) != float ("0.000000")):
+	    		delay = int(1000*float(dict_dict_stream[filename3]['start_time']))
+	    		arguments += " --sync 0:"+str(delay)
+
+	    	arguments += " \""+filepath+"\""
+
+	remuxCommand = mkvmergeExe + " -o \""+parentFolder+"\\Remux\\"+filename+"\"" +" -A "+"\""+parentFolder+"\\A-Inputs\\"+filename+"\" "+arguments
 	subprocess.run(remuxCommand, capture_output=True, shell=True, encoding="utf-8")
 
 	for filename2 in os.listdir(dir_demux):
 	    filepath = os.path.join(dir_demux, filename2)
 	    if os.path.isfile(filepath):
 	    	os.remove(filepath)
-	os.system("cls")
+	#os.system("cls")
 
 print('\033[92m'+"--------------------------------------------- DONE ---------------------------------------------"+'\033[0m')
 os.system("pause")
