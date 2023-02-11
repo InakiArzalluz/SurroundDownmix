@@ -1,12 +1,14 @@
 import subprocess
 import os
+import datetime
+start_time = datetime.datetime.now()
 
 # --------------------------------------------- Downmix Algorithms ---------------------------------------------
 #ATSC formula (ffmpeg's default):
-# algoritmoDownix = "\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\""
+algoritmoDownix = "\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\""
 
 # without discarding the LFE channel:
-algoritmoDownix = "\"pan=stereo|c0=0.5*c2+0.707*c0+0.707*c4+0.5*c3|c1=0.5*c2+0.707*c1+0.707*c5+0.5*c3\""
+# algoritmoDownix = "\"pan=stereo|c0=0.5*c2+0.707*c0+0.707*c4+0.5*c3|c1=0.5*c2+0.707*c1+0.707*c5+0.5*c3\""
 
 # Nightmode:
 # algoritmoDownix = "\"pan=stereo|c0=c2+0.30*c0+0.30*c4|c1=c2+0.30*c1+0.30*c5\""
@@ -15,10 +17,11 @@ algoritmoDownix = "\"pan=stereo|c0=0.5*c2+0.707*c0+0.707*c4+0.5*c3|c1=0.5*c2+0.7
 parentFolder = os.getcwd()
 dir_inputs = os.path.join(parentFolder,"A-Inputs")
 dir_demux = os.path.join(parentFolder,"Demux")
+dir_remux = os.path.join(parentFolder,"Remux")
 try:
 	os.mkdir(dir_inputs)
 	os.mkdir(dir_demux)
-	os.mkdir(os.path.join(parentFolder,"Remux"))
+	os.mkdir(dir_remux)
 except OSError as error:
 	if(error.errno != 17): # 17: "File already exists"
 		print(error)
@@ -30,7 +33,7 @@ for filename in os.listdir(dir_inputs):
 	os.system("cls")
 	print("---------------------------------------------------------------------------------------------------") #inputFile = os.path.join(dir_inputs,filename)
 	print(filename)
-	ffprobeCommand = "\""+parentFolder+"\\Tools\\ffmpeg\\ffprobe.exe\" -v error -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language:disposition=default \""+os.path.join(dir_inputs,filename)+"\""
+	ffprobeCommand = "\""+parentFolder+"\\Tools\\ffmpeg\\ffprobe.exe\" -v error -show_streams -select_streams a -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language:disposition=default \""+os.path.join(dir_inputs,filename)+"\""
 	str_Stdout = subprocess.run(ffprobeCommand, capture_output=True, shell=True, encoding="utf-8").stdout
 	list_Stdout = str_Stdout.rsplit(sep="[STREAM]\n")
 	list_streams = []
@@ -41,7 +44,6 @@ for filename in os.listdir(dir_inputs):
 		if parte != "":
 			list_streams.append(parte)
 	del list_Stdout
-	
 	print("--------------------------------------------- Demuxing ---------------------------------------------")
 	filesToDownmix = 0
 	streams = ""
@@ -68,9 +70,8 @@ for filename in os.listdir(dir_inputs):
 				print(file2Write +" will be downmixed")
 
 	if(filesToDownmix > 0):
-		ffmpegCommand =	ffmpegExe + " -y -i " + "\""+os.path.join(dir_inputs,filename)+"\" " + streams
+		ffmpegCommand =	ffmpegExe + " -y -i \""+os.path.join(dir_inputs,filename)+"\" " + streams
 		subprocess.run(ffmpegCommand, capture_output=True, shell=True, encoding="utf-8")
-
 	print("--------------------------------------------- Downmixing ---------------------------------------------")
 	for filename2 in os.listdir(dir_demux):
 	    filepath = os.path.join(dir_demux, filename2)
@@ -80,21 +81,20 @@ for filename in os.listdir(dir_inputs):
 		    		print(filename2)
 		    		codec = dict_dict_stream[filename2]['codec_name']
 		    		filenameNoExt=filename2.rsplit(sep=".")[0]
-		    		downmixCommand = ffmpegExe + " -i " + "\""+filepath+"\"" + " -c " + codec + " -af " + algoritmoDownix + " "  + "\""+os.path.join(dir_demux,filenameNoExt)+"_downmix."+codec+"\""
+		    		downmixCommand = ffmpegExe + " -i \""+filepath+"\" -c " + codec + " -af " + algoritmoDownix + " \""+os.path.join(dir_demux,filenameNoExt)+"_downmix."+codec+"\""
 		    		subprocess.run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
 		    		dict_dict_stream[filenameNoExt+"_downmix."+codec] = dict_dict_stream[filename2]
 		    		del dict_dict_stream[filename2]
-		    		os.remove(filepath)
-	    		
+		    		os.remove(filepath)		
 	print("--------------------------------------------- Remuxing ---------------------------------------------")
 	delay = arguments = ""
 	inputFile = os.path.join(dir_inputs,filename)
-	remuxedFile = os.path.join(os.path.join(parentFolder,"Remux"),filename)
+	remuxedFile = os.path.join(dir_remux,filename)
 	if(filesToDownmix > 0):
+		print("Processing")
 		for filename3 in os.listdir(dir_demux):
 		    filepath = os.path.join(dir_demux, filename3)
 		    if os.path.isfile(filepath):
-		    	print("Processing")
 		    	if('TAG:language' in dict_dict_stream[filename3]):
 		    		arguments += " --language 0:" + dict_dict_stream[filename3]['TAG:language']
 
@@ -109,7 +109,7 @@ for filename in os.listdir(dir_inputs):
 
 		    	arguments += " \""+filepath+"\""
 		Remuxcounter += 1
-		remuxCommand = mkvmergeExe + " -o \"" +remuxedFile+ "\"" +" -A "+"\""+inputFile+"\" "+arguments
+		remuxCommand = mkvmergeExe + " -o \"" +remuxedFile+ "\" -A \"" + inputFile + "\" " + arguments
 		subprocess.run(remuxCommand, capture_output=True, shell=True, encoding="utf-8")
 	else:
 		os.replace(inputFile, remuxedFile)
@@ -118,10 +118,10 @@ for filename in os.listdir(dir_inputs):
 	    filepath = os.path.join(dir_demux, filename2)
 	    if os.path.isfile(filepath):
 	    	os.remove(filepath)
-
 print('\033[92m'+"--------------------------------------------- DONE ---------------------------------------------"+'\033[0m')
 if(Remuxcounter > 0):
 	print("Se procesaron "+str(Remuxcounter)+" videos con audio 5.1")
 else:
 	print("NO se encontraron videos con audio 5.1")
+print("se tardo: "+str(datetime.datetime.now()-start_time))
 os.system("pause")
