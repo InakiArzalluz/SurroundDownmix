@@ -46,7 +46,7 @@ def main():
 				list_streams+=parte,
 		del list_Stdout
 		print("--------------------------------------------- Demuxing ---------------------------------------------")
-		filesToDownmix = 0
+		filesToDownmix = False
 		streams = ""
 		dict_dict_stream = {} # key=filename(que tiene un unico stream), value=dict de info de ese unico stream
 		for stream in list_streams:
@@ -66,10 +66,10 @@ def main():
 				streams = "".join([streams,"-map 0:",stream_dict["index"]," -c copy \"",path.join(dir_demux,file2Write),"\" "])
 				dict_dict_stream[file2Write]=stream_dict
 				if(stream_dict['channels']=='6'):
-					filesToDownmix += 1
+					filesToDownmix = True
 					print("".join([file2Write," will be downmixed"]))
 
-		if(filesToDownmix > 0):
+		if(filesToDownmix == True):
 			ffmpegCommand =	"".join([ffmpegExe," -y -i \"",path.join(dir_inputs,filename),"\" ",streams])
 			run(ffmpegCommand, capture_output=True, shell=True, encoding="utf-8")
 		print("--------------------------------------------- Downmixing ---------------------------------------------")
@@ -77,20 +77,20 @@ def main():
 			filepath = path.join(dir_demux, filename2)
 			if path.isfile(filepath):
 				if (filename2.find("_downmix") == -1):
-						if('channels' in dict_dict_stream[filename2]  and dict_dict_stream[filename2]['channels']=='6'):
-							print(filename2)
-							codec = dict_dict_stream[filename2]['codec_name']
-							filenameNoExt=filename2.rsplit(sep=".")[0]
-							downmixCommand = "".join([ffmpegExe," -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(dir_demux,filenameNoExt),"_downmix.",codec,"\""])
-							run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
-							dict_dict_stream["".join([filenameNoExt,"_downmix.",codec])] = dict_dict_stream[filename2]
-							del dict_dict_stream[filename2]
-							remove(filepath)		
+					if('channels' in dict_dict_stream[filename2]  and dict_dict_stream[filename2]['channels']=='6'):
+						print(filename2)
+						codec = dict_dict_stream[filename2]['codec_name']
+						filenameNoExt=filename2.rsplit(sep=".")[0]
+						downmixCommand = "".join([ffmpegExe," -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(dir_demux,filenameNoExt),"_downmix.",codec,"\""])
+						run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
+						dict_dict_stream["".join([filenameNoExt,"_downmix.",codec])] = dict_dict_stream[filename2]
+						del dict_dict_stream[filename2]
+						remove(filepath)		
 		print("--------------------------------------------- Remuxing ---------------------------------------------")
 		delay = arguments = ""
 		inputFile = path.join(dir_inputs,filename)
 		remuxedFile = path.join(dir_remux,filename)
-		if(filesToDownmix > 0):
+		if(filesToDownmix == True):
 			print("Processing")
 			for filename3 in listdir(dir_demux):
 				filepath = path.join(dir_demux, filename3)
@@ -119,7 +119,7 @@ def main():
 			filepath = path.join(dir_demux, filename2)
 			if path.isfile(filepath):
 				remove(filepath)
-	print("".join(['\033[92m',"--------------------------------------------- DONE ---------------------------------------------",'\033[0m']))
+	print("\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m")
 	print("".join(["Se procesaron ",str(Remuxcounter)," videos con audio 5.1"]))
 	print("se tardo: "+str(datetime.now()-start_time))
 	system("pause")
