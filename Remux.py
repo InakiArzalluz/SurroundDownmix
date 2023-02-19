@@ -2,7 +2,7 @@ from subprocess import run
 from os import getcwd,path,system,mkdir,replace,remove,listdir,walk
 from datetime import datetime as dt
 from shutil import rmtree
-from multiprocessing import pool as mpPool
+import multiprocessing as mp
 # --------------------------------------------- Downmix Algorithms ---------------------------------------------
 #ATSC formula (ffmpeg's default):
 algoritmoDownix = "\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\""
@@ -45,6 +45,8 @@ def createFolderStructure(root,missing):
 				print(error)
 
 def demux(root,filename,demuxLocation,list_streams):
+	# TODO: only demux if at least 1 surround stream is found
+	print("Demuxing")
 	filesToDownmix = False
 	streams = ""
 	dict_dict_stream = {} # key=filename(que tiene un unico stream), value=dict de info de ese unico stream
@@ -83,34 +85,34 @@ def runDownmix(args):
 	remove(filepath)
 
 def downmix(demuxLocation,dict_dict_stream):
-	pool = mpPool() # As many workers as logical cores
+	print("Downmixing")
+	pool = mp.Pool() # As many workers as logical cores
 	iterable =[]
 	for filename2 in listdir(demuxLocation):
 		filepath = path.join(demuxLocation, filename2)
-		if path.isfile(filepath):
-			if (filename2.find("_downmix") == -1):
-				if('channels' in dict_dict_stream[filepath]  and dict_dict_stream[filepath]['channels']=='6'):
-					codec = dict_dict_stream[filepath]['codec_name']
-					filenameNoExt=filename2.rsplit(sep=".")[0]
-					downmixCommand = "".join([ffmpegExe," -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(demuxLocation,filenameNoExt),"_downmix.",codec,"\""])
-					dict_dict_stream[path.join(demuxLocation,"".join([filenameNoExt,"_downmix.",codec]))] = dict_dict_stream[filepath]
-					del dict_dict_stream[filepath]
-					iterable.append((filepath,downmixCommand))
+		if path.isfile(filepath) and filename2.find("_downmix") == -1 and dict_dict_stream[filepath]['channels']=='6':
+			codec = dict_dict_stream[filepath]['codec_name']
+			filenameSeparated=filename2.rsplit(sep=".")
+			filenameNoExt = "".join(filenameSeparated[:len(filenameSeparated)-1])
+			downmixCommand = "".join([ffmpegExe," -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(demuxLocation,filenameNoExt),"_downmix.",codec,"\""])
+			dict_dict_stream[path.join(demuxLocation,"".join([filenameNoExt,"_downmix.",codec]))] = dict_dict_stream[filepath]
+			del dict_dict_stream[filepath]
+			iterable.append((filepath,downmixCommand))
 	pool.imap_unordered(runDownmix,iterable)
 	pool.close()
 	pool.join()
 
 def remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix):
-	print("remuxing: "+filename)
+	print("Remuxing")
 	delay = arguments = ""
 	inputFile = path.join(root,filename)
 	remuxLocation = path.join(dir_remux,path.join(root[len(dir_inputs)+1:]))
 	missingStructure=path.split(root[len(dir_inputs)+1:])
+	createFolderStructure(dir_remux,missingStructure)
 	remuxedFile = path.join(remuxLocation,filename)
 	if(filesToDownmix == True):
-		createFolderStructure(dir_remux,missingStructure)
-		for filename3 in listdir(demuxLocation):
-			filepath = path.join(demuxLocation, filename3)
+		for audioStream in listdir(demuxLocation):
+			filepath = path.join(demuxLocation, audioStream)
 			if path.isfile(filepath):
 				if('TAG:language' in dict_dict_stream[filepath]):
 					arguments = "".join([arguments," --language 0:", dict_dict_stream[filepath]['TAG:language']])
@@ -130,7 +132,7 @@ def remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix):
 
 if __name__ == '__main__':
 	start_time = dt.now()
-	foldersToCreate = [dir_inputs,dir_demux,dir_remux]
+	foldersToCreate = (dir_inputs,dir_demux,dir_remux)
 	for folder in foldersToCreate:
 		try:
 			mkdir(folder)
@@ -140,14 +142,15 @@ if __name__ == '__main__':
 	print("---------------------------------------------------------------------------------------------------")
 	for root, dirs, files in walk(dir_inputs):
 		for filename in files:
-			filepath = path.join(root,filename)
-			print("".join(["Processing ",filepath]))
-			list_streams = probe(filepath)
-			demuxLocation = path.join(dir_demux,path.join(root[len(dir_inputs)+1:],filename))
-			dict_dict_stream,filesToDownmix = demux(root,filename,demuxLocation,list_streams)
-			downmix(demuxLocation,dict_dict_stream)
-			remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix)
-			del dict_dict_stream
+			if(filename.rsplit(sep=".")[-1] == "mkv"):
+				filepath = path.join(root,filename)
+				print("".join(["Processing ",filepath]))
+				list_streams = probe(filepath)
+				demuxLocation = path.join(dir_demux,path.join(root[len(dir_inputs)+1:],filename))
+				dict_dict_stream,filesToDownmix = demux(root,filename,demuxLocation,list_streams)
+				downmix(demuxLocation,dict_dict_stream)
+				remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix)
+				del dict_dict_stream
 	print("\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m")
 	print("se tardo: "+str(dt.now()-start_time))
 	system("pause")
