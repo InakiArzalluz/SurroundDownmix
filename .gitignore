@@ -16,6 +16,7 @@
 *.mp3
 *.jpg
 *.png
+*.nfo
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

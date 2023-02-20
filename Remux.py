@@ -1,4 +1,4 @@
-from subprocess import run
+from subprocess import run,SubprocessError
 from os import getcwd,path,system,mkdir,replace,remove,listdir,walk
 from datetime import datetime as dt
 from shutil import rmtree
@@ -45,11 +45,10 @@ def createFolderStructure(root,missing):
 				print(error)
 
 def demux(root,filename,demuxLocation,list_streams):
-	# TODO: only demux if at least 1 surround stream is found
 	print("Demuxing")
 	filesToDownmix = False
 	streams = ""
-	dict_dict_stream = {} # key=filename(que tiene un unico stream), value=dict de info de ese unico stream
+	dict_dict_stream = {} # key=filename(with only 1 stream), value=dict with info about that unique stream
 	for stream in list_streams:
 		stream_dict = {}
 		infos = stream.rsplit(sep="\n")
@@ -74,15 +73,21 @@ def demux(root,filename,demuxLocation,list_streams):
 			if(stream_dict['channels']=='6'):
 				filesToDownmix = True
 
-	if(filesToDownmix == True):
+	if(filesToDownmix):
 		ffmpegCommand =	"".join([ffmpegExe," -y -i \"",path.join(root,filename),"\" ",streams])
-		run(ffmpegCommand, capture_output=True, shell=True, encoding="utf-8")
+		try:
+			run(ffmpegCommand, capture_output=True, shell=True, check=True, encoding="utf-8")
+		except SubprocessError as error:
+			print(error.stderr)
 	return dict_dict_stream, filesToDownmix
 
 def runDownmix(args):
 	filepath, downmixCommand = args
-	run(downmixCommand, capture_output=True, shell=True, encoding="utf-8")
-	remove(filepath)
+	try:
+		run(downmixCommand, capture_output=True, shell=True, check=True, encoding="utf-8")
+		remove(filepath)
+	except SubprocessError as error:
+		print(error.stderr)
 
 def downmix(demuxLocation,dict_dict_stream):
 	print("Downmixing")
@@ -94,7 +99,7 @@ def downmix(demuxLocation,dict_dict_stream):
 			codec = dict_dict_stream[filepath]['codec_name']
 			filenameSeparated=filename2.rsplit(sep=".")
 			filenameNoExt = "".join(filenameSeparated[:len(filenameSeparated)-1])
-			downmixCommand = "".join([ffmpegExe," -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(demuxLocation,filenameNoExt),"_downmix.",codec,"\""])
+			downmixCommand = "".join([ffmpegExe," -y -i \"",filepath,"\" -c ",codec," -af ",algoritmoDownix," \"",path.join(demuxLocation,filenameNoExt),"_downmix.",codec,"\""])
 			dict_dict_stream[path.join(demuxLocation,"".join([filenameNoExt,"_downmix.",codec]))] = dict_dict_stream[filepath]
 			del dict_dict_stream[filepath]
 			iterable.append((filepath,downmixCommand))
@@ -102,15 +107,12 @@ def downmix(demuxLocation,dict_dict_stream):
 	pool.close()
 	pool.join()
 
-def remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix):
+def remux(root,demuxLocation,remuxLocation,filename,dict_dict_stream,filesToDownmix):
 	print("Remuxing")
 	delay = arguments = ""
 	inputFile = path.join(root,filename)
-	remuxLocation = path.join(dir_remux,path.join(root[len(dir_inputs)+1:]))
-	missingStructure=path.split(root[len(dir_inputs)+1:])
-	createFolderStructure(dir_remux,missingStructure)
 	remuxedFile = path.join(remuxLocation,filename)
-	if(filesToDownmix == True):
+	if(filesToDownmix):
 		for audioStream in listdir(demuxLocation):
 			filepath = path.join(demuxLocation, audioStream)
 			if path.isfile(filepath):
@@ -125,10 +127,20 @@ def remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix):
 					arguments += " --sync 0:"+str(delay)
 				arguments = "".join([arguments," \"",filepath,"\""])
 			remuxCommand = "".join([mkvmergeExe," -o \"",remuxedFile,"\" -A \"",inputFile,"\" ",arguments])
-			run(remuxCommand, capture_output=True, shell=True, encoding="utf-8")
+			try:
+				run(remuxCommand, capture_output=True, shell=True, check=True, encoding="utf-8")
+			except SubprocessError as error:
+				print(error.stderr)
 	else:
 		replace(inputFile, remuxedFile)
-	rmtree(demuxLocation)
+
+def cleanDemuxfolder():
+	for content in listdir(dir_demux):
+		contentPath = path.join(dir_demux,content)
+		if path.isfile(contentPath): # There should only be folders, but just in case
+			remove(contentPath)
+		else:
+			rmtree(contentPath)
 
 if __name__ == '__main__':
 	start_time = dt.now()
@@ -139,18 +151,25 @@ if __name__ == '__main__':
 		except OSError as error:
 			if(error.errno != 17): # 17: "File already exists"
 				print(error)
-	print("---------------------------------------------------------------------------------------------------")
+	print("\033[92m---------------------------------------------------------------------------------------------------\033[0m")
 	for root, dirs, files in walk(dir_inputs):
 		for filename in files:
+			filepath = path.join(root,filename)
+			remuxLocation = path.join(dir_remux,path.join(root[len(dir_inputs)+1:]))
+			missingStructure=path.split(root[len(dir_inputs)+1:])
+			createFolderStructure(dir_remux,missingStructure)
 			if(filename.rsplit(sep=".")[-1] == "mkv"):
-				filepath = path.join(root,filename)
 				print("".join(["Processing ",filepath]))
 				list_streams = probe(filepath)
 				demuxLocation = path.join(dir_demux,path.join(root[len(dir_inputs)+1:],filename))
 				dict_dict_stream,filesToDownmix = demux(root,filename,demuxLocation,list_streams)
 				downmix(demuxLocation,dict_dict_stream)
-				remux(root,demuxLocation,filename,dict_dict_stream,filesToDownmix)
+				remux(root,demuxLocation,remuxLocation,filename,dict_dict_stream,filesToDownmix)
 				del dict_dict_stream
+			else:
+				#remuxLocation = path.join(dir_remux,path.join(root[len(dir_inputs)+1:]))
+				replace(filepath, path.join(remuxLocation,filename))
+	cleanDemuxfolder()
 	print("\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m")
 	print("se tardo: "+str(dt.now()-start_time))
 	system("pause")
