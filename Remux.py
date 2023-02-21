@@ -3,6 +3,7 @@ import os
 import datetime as dt
 import shutil as sh
 import multiprocessing as mp
+import platform
 # --------------------------------------------- Downmix Algorithms ---------------------------------------------
 # ATSC formula (ffmpeg's default):
 algoritmoDownix = '\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\"'
@@ -17,13 +18,19 @@ parentFolder = os.getcwd()
 dir_inputs = os.path.join(parentFolder, 'A-Inputs')
 dir_demux = os.path.join(parentFolder, 'Demux')
 dir_remux = os.path.join(parentFolder, 'Remux')
-ffmpegExe = ''.join(['\"', parentFolder, '\\Tools\\ffmpeg\\ffmpeg.exe\"'])
-mkvmergeExe = ''.join(['\"', parentFolder, '\\Tools\\mkvtoolnix\\mkvmerge.exe\"'])
+if (platform.system() == 'Windows'):
+    ffmpeg = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffmpeg.exe\"'
+    mkvmerge = f'\"{parentFolder}{os.sep}Tools{os.sep}mkvtoolnix{os.sep}mkvmerge.exe\"'
+    ffprobe = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffprobe.exe\"'
+else:
+    ffmpeg = 'ffmpeg'
+    mkvmerge = 'mkvmerge'
+    ffprobe = 'ffprobe'
 streamSuffix = '[/STREAM]\n'
 
 
 def probe(filepath):
-    ffprobeCommand = ''.join(['\"', parentFolder, '\\Tools\\ffmpeg\\ffprobe.exe\" -v error -show_streams -select_streams a -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language:disposition=default \"', filepath, '\"'])
+    ffprobeCommand = f'{ffprobe} -v error -show_streams -select_streams a -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language:disposition=default \"{filepath}\"'
     str_Stdout = sp.run(ffprobeCommand, capture_output=True, shell=True, encoding='utf-8').stdout
     list_Stdout = str_Stdout.rsplit(sep='[STREAM]\n')
     list_streams = []
@@ -71,13 +78,14 @@ def demux(root, filename, demuxLocation, list_streams):
             createFolderStructure(dir_demux, missingStructure)
 
             file2Write = os.path.join(demuxLocation, file2Write)
-            streams = ''.join([streams, '-map 0:', stream_dict['index'], ' -c copy \"', file2Write, '\" '])
+            streams = ''.join([f'{streams}-map 0:', stream_dict['index'], f' -c copy \"{file2Write}\" '])
             dict_dict_stream[file2Write] = stream_dict
             if stream_dict['channels'] == '6':
                 filesToDownmix = True
 
     if filesToDownmix:
-        ffmpegCommand = ''.join([ffmpegExe, ' -y -i \"', os.path.join(root, filename), '\" ', streams])
+        inputFile = os.path.join(root, filename)
+        ffmpegCommand = f'{ffmpeg} -y -i \"{inputFile}\" {streams}'
         try:
             sp.run(ffmpegCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
@@ -103,9 +111,9 @@ def downmix(demuxLocation, dict_dict_stream):
         if os.path.isfile(filepath) and filename2.find('_downmix') == -1 and dict_dict_stream[filepath]['channels'] == '6':
             codec = dict_dict_stream[filepath]['codec_name']
             filenameSeparated = filename2.rsplit(sep='.')
-            filenameNoExt = ''.join(filenameSeparated[:-1])
-            downmixCommand = ''.join([ffmpegExe, ' -y -i \"', filepath, '\" -c ', codec, ' -af ', algoritmoDownix, ' \"', os.path.join(demuxLocation, filenameNoExt), '_downmix.', codec, '\"'])
-            dict_dict_stream[os.path.join(demuxLocation, ''.join([filenameNoExt, '_downmix.', codec]))] = dict_dict_stream[filepath]
+            outputFileNoExt = os.path.join(demuxLocation, ''.join(filenameSeparated[:-1]))
+            downmixCommand = f'{ffmpeg} -y -i \"{filepath}\" -c {codec} -af {algoritmoDownix} \"{outputFileNoExt}_downmix.{codec}\"'
+            dict_dict_stream[f'{outputFileNoExt}_downmix.{codec}'] = dict_dict_stream[filepath]
             del dict_dict_stream[filepath]
             iterable.append((filepath, downmixCommand))
     pool.imap_unordered(runDownmix, iterable)
@@ -113,26 +121,22 @@ def downmix(demuxLocation, dict_dict_stream):
     pool.join()
 
 
-def remux(root, demuxLocation, remuxLocation, filename, dict_dict_stream, filesToDownmix):
+def remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream, filesToDownmix):
     print("Remuxing")
     delay = arguments = ''
-    inputFile = os.path.join(root, filename)
-    remuxedFile = os.path.join(remuxLocation, filename)
     if filesToDownmix:
         for audioStream in os.listdir(demuxLocation):
             filepath = os.path.join(demuxLocation, audioStream)
             if os.path.isfile(filepath):
                 if 'TAG:language' in dict_dict_stream[filepath]:
                     arguments = ''.join([arguments, ' --language 0:', dict_dict_stream[filepath]['TAG:language']])
-                if 'DISPOSITION:default' in dict_dict_stream[filepath] and dict_dict_stream[filepath]['DISPOSITION:default'] == '1':
-                    arguments += ' --default-track-flag 0:1'
-                else:
-                    arguments += ' --default-track-flag 0:0'
+                isDefault = 'DISPOSITION:default' in dict_dict_stream[filepath] and dict_dict_stream[filepath]['DISPOSITION:default'] == '1'
+                arguments += f' --default-track-flag 0:{int(isDefault)}'
                 if 'start_time' in dict_dict_stream[filepath] and float(dict_dict_stream[filepath]['start_time']) != float('0.000000'):
                     delay = int(1000*float(dict_dict_stream[filepath]['start_time']))
                     arguments += f' --sync 0:{delay}'
-                arguments = ''.join([arguments, ' \"', filepath, '\"'])
-            remuxCommand = ''.join([mkvmergeExe, ' -o \"', remuxedFile, '\" -A \"', inputFile, '\" ', arguments])
+                arguments = f'{arguments} \"{filepath}\"'
+            remuxCommand = f'{mkvmerge} -o \"{remuxedFile}\" -A \"{inputFile}\" {arguments}'
             try:
                 sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
             except sp.SubprocessError as error:
@@ -171,11 +175,16 @@ if __name__ == '__main__':
                 demuxLocation = os.path.join(dir_demux, os.path.join(root[len(dir_inputs)+1:], filename))
                 dict_dict_stream, filesToDownmix = demux(root, filename, demuxLocation, list_streams)
                 downmix(demuxLocation, dict_dict_stream)
-                remux(root, demuxLocation, remuxLocation, filename, dict_dict_stream, filesToDownmix)
+                inputFile = os.path.join(root, filename)
+                remuxedFile = os.path.join(remuxLocation, filename)
+                remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream, filesToDownmix)
                 del dict_dict_stream
             else:
                 os.replace(filepath, os.path.join(remuxLocation, filename))
     cleanDemuxfolder()
     print('\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m')
     print(f"se tardo: {dt.datetime.now()-start_time}")
-    os.system('pause')
+    if (platform.system() == 'Windows'):
+        os.system('pause')
+    else:
+        os.system('read -p "Press any key to exit ..."')
