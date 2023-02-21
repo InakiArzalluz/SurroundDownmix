@@ -17,5 +17,5 @@ Python script to (batch) downmix audio (5.1 -> 2.0) in movies while retaining vo
  ### Usage
  + if it's the first time using it, run 'python Remux.py' in a terminal
  to create the necessary folders 
- + Drop files inside the auto-created 'A-Input' folder
- + run 'python Remux.py' in a terminalrs that include .otf or .ttf files~~
+ + Drop the files to downmix inside the auto-created 'A-Input' folder
+ + run 'python Remux.py' in a terminal
