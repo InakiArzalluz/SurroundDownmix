@@ -6,7 +6,10 @@ import multiprocessing as mp
 import platform
 # --------------------------------------------- Downmix Algorithms ---------------------------------------------
 # ATSC formula (ffmpeg's default):
-algoritmoDownix = '\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\"'
+# algoritmoDownix = '\"pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\"'
+
+# ATSC with volume boost
+algoritmoDownix = '\"volume=2.0,pan=stereo|c0 < 1.0*c0 + 0.707*c2 + 0.707*c4|c1 < 1.0*c1 + 0.707*c2 + 0.707*c5\"'
 
 # without discarding the LFE channel:
 # algoritmoDownix = '\"pan=stereo|c0=0.5*c2+0.707*c0+0.707*c4+0.5*c3|c1=0.5*c2+0.707*c1+0.707*c5+0.5*c3\"'
@@ -18,7 +21,7 @@ parentFolder = os.getcwd()
 dir_inputs = os.path.join(parentFolder, 'A-Inputs')
 dir_demux = os.path.join(parentFolder, 'Demux')
 dir_remux = os.path.join(parentFolder, 'Remux')
-if (platform.system() == 'Windows'):
+if platform.system() == 'Windows':
     ffmpeg = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffmpeg.exe\"'
     mkvmerge = f'\"{parentFolder}{os.sep}Tools{os.sep}mkvtoolnix{os.sep}mkvmerge.exe\"'
     ffprobe = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffprobe.exe\"'
@@ -115,7 +118,7 @@ def downmix(demuxLocation, dict_dict_stream):
             downmixCommand = f'{ffmpeg} -y -i \"{filepath}\" -c {codec} -af {algoritmoDownix} \"{outputFileNoExt}_downmix.{codec}\"'
             dict_dict_stream[f'{outputFileNoExt}_downmix.{codec}'] = dict_dict_stream[filepath]
             del dict_dict_stream[filepath]
-            iterable.append((filepath, downmixCommand))
+            iterable += (filepath, downmixCommand),
     pool.imap_unordered(runDownmix, iterable)
     pool.close()
     pool.join()
@@ -184,7 +187,7 @@ if __name__ == '__main__':
     cleanDemuxfolder()
     print('\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m')
     print(f"se tardo: {dt.datetime.now()-start_time}")
-    if (platform.system() == 'Windows'):
+    if platform.system() == 'Windows':
         os.system('pause')
     else:
         os.system('read -p "Press any key to exit ..."')
