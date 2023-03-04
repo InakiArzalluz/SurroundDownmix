@@ -113,9 +113,13 @@ def downmix(demuxLocation, dict_dict_stream):
         filepath = os.path.join(demuxLocation, filename2)
         if os.path.isfile(filepath) and filename2.find('_downmix') == -1 and dict_dict_stream[filepath]['channels'] == '6':
             codec = dict_dict_stream[filepath]['codec_name']
+            if codec == 'aac':
+                aac_fast = '-aac_coder fast'
+            else:
+                aac_fast = ''
             filenameSeparated = filename2.rsplit(sep='.')
             outputFileNoExt = os.path.join(demuxLocation, ''.join(filenameSeparated[:-1]))
-            downmixCommand = f'{ffmpeg} -y -i \"{filepath}\" -c {codec} -af {algoritmoDownix} \"{outputFileNoExt}_downmix.{codec}\"'
+            downmixCommand = f'{ffmpeg} -y -i \"{filepath}\" -c {codec} {aac_fast} -af {algoritmoDownix} \"{outputFileNoExt}_downmix.{codec}\"'
             dict_dict_stream[f'{outputFileNoExt}_downmix.{codec}'] = dict_dict_stream[filepath]
             del dict_dict_stream[filepath]
             iterable += (filepath, downmixCommand),
@@ -151,21 +155,22 @@ def remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream, filesToDownmi
 def cleanDemuxfolder():
     for content in os.listdir(dir_demux):
         contentPath = os.path.join(dir_demux, content)
-        if os.path.isfile(contentPath):  # There should only be folders, but just in case
+        if os.path.isfile(contentPath):
             os.remove(contentPath)
         else:
             sh.rmtree(contentPath)
 
 if __name__ == '__main__':
     start_time = dt.datetime.now()
+
     foldersToCreate = (dir_inputs, dir_demux, dir_remux)
     for folder in foldersToCreate:
         try:
             os.mkdir(folder)
         except OSError as error:
-            if error.errno != 17:  # 17: "File already exists"
+            if error.errno != 17:
                 print(error)
-    print('\033[92m---------------------------------------------------------------------------------------------------\033[0m')
+
     for root, dirs, files in os.walk(dir_inputs):
         for filename in files:
             filepath = os.path.join(root, filename)
@@ -173,6 +178,7 @@ if __name__ == '__main__':
             missingStructure = os.path.split(root[len(dir_inputs)+1:])
             createFolderStructure(dir_remux, missingStructure)
             if filename.rsplit(sep='.')[-1] == 'mkv':
+                print('\033[92m---------------------------------------------------------------------------------------------------\033[0m')
                 print("".join(["Processing ", filepath]))
                 list_streams = probe(filepath)
                 demuxLocation = os.path.join(dir_demux, os.path.join(root[len(dir_inputs)+1:], filename))
