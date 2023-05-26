@@ -114,7 +114,7 @@ def downmix(demuxLocation, dict_dict_stream):
         if os.path.isfile(filepath) and filename2.find('_downmix') == -1 and dict_dict_stream[filepath]['channels'] == '6':
             codec = dict_dict_stream[filepath]['codec_name']
             if codec == 'dts':
-                codec = 'aac'
+                codec = 'ac3'
             if codec == 'aac':
                 aac_fast = '-aac_coder fast'
             else:
