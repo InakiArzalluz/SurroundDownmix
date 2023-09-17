@@ -21,20 +21,20 @@ parentFolder = os.getcwd()
 dir_inputs = os.path.join(parentFolder, 'A-Inputs')
 dir_demux = os.path.join(parentFolder, 'Demux')
 dir_remux = os.path.join(parentFolder, 'Remux')
-if platform.system() == 'Windows':
-    ffmpeg = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffmpeg.exe\"'
-    mkvmerge = f'\"{parentFolder}{os.sep}Tools{os.sep}mkvtoolnix{os.sep}mkvmerge.exe\"'
-    ffprobe = f'\"{parentFolder}{os.sep}Tools{os.sep}ffmpeg{os.sep}ffprobe.exe\"'
-else:
-    ffmpeg = 'ffmpeg'
-    mkvmerge = 'mkvmerge'
-    ffprobe = 'ffprobe'
+ffmpeg = 'ffmpeg'
+mkvmerge = 'mkvmerge'
+ffprobe = 'ffprobe'
 streamSuffix = '[/STREAM]\n'
 
 
 def probe(filepath):
     ffprobeCommand = f'{ffprobe} -v error -show_streams -select_streams a -show_entries stream=index,codec_name,codec_type,channels,start_time:stream_tags=language:disposition=default \"{filepath}\"'
-    str_Stdout = sp.run(ffprobeCommand, capture_output=True, shell=True, encoding='utf-8').stdout
+    runResult = sp.run(ffprobeCommand, capture_output=True, shell=True, encoding='utf-8')
+    str_Stdout = runResult.stdout
+    str_StdErr = runResult.stderr
+    if(str_Stdout == ""):
+        raise Exception(str_StdErr)
+
     list_Stdout = str_Stdout.rsplit(sep='[STREAM]\n')
     list_streams = []
     for parte in list_Stdout:
@@ -58,17 +58,18 @@ def createFolderStructure(root, missing):
 
 
 def demux(root, filename, demuxLocation, list_streams):
-    print("Demuxing")
-    filesToDownmix = False
+    needsDownmix = False
     streams = ''
     dict_dict_stream = {}  # key=filename(with only 1 stream), value=dict with info about that unique stream
     for stream in list_streams:
         stream_dict = {}
         infos = stream.rsplit(sep='\n')
         infos.remove('')
+
         for info in infos:
             dict_entry = info.rsplit(sep='=')
             stream_dict[dict_entry[0]] = dict_entry[1]
+
         if stream_dict['codec_type'] == 'audio':
             file2Write = ''.join([stream_dict['index'], '_', filename.rsplit(sep='.')[0], '_', stream_dict['codec_type']])
             if 'DISPOSITION:forced' in stream_dict and stream_dict['DISPOSITION:forced'] == '1':
@@ -77,23 +78,25 @@ def demux(root, filename, demuxLocation, list_streams):
                 file2Write += "_"+stream_dict['TAG:language']
             file2Write += "."+stream_dict['codec_name']
 
-            missingStructure = os.path.split(root[len(dir_inputs)+1:])+(filename,)
-            createFolderStructure(dir_demux, missingStructure)
-
             file2Write = os.path.join(demuxLocation, file2Write)
             streams = ''.join([f'{streams}-map 0:', stream_dict['index'], f' -c copy \"{file2Write}\" '])
             dict_dict_stream[file2Write] = stream_dict
             if stream_dict['channels'] == '6':
-                filesToDownmix = True
+                needsDownmix = True
 
-    if filesToDownmix:
+    if needsDownmix:
+        print("Demuxing")
+        missingStructure = root[len(dir_inputs)+1:].split(os.sep)+[filename]
+        createFolderStructure(dir_demux, missingStructure)
         inputFile = os.path.join(root, filename)
         ffmpegCommand = f'{ffmpeg} -y -i \"{inputFile}\" {streams}'
         try:
             sp.run(ffmpegCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
             print(error.stderr)
-    return dict_dict_stream, filesToDownmix
+    else:
+        print('Downmixing isn\'t required')
+    return dict_dict_stream, needsDownmix
 
 
 def runDownmix(args):
@@ -130,29 +133,26 @@ def downmix(demuxLocation, dict_dict_stream):
     pool.join()
 
 
-def remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream, filesToDownmix):
+def remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream):
     print("Remuxing")
     delay = arguments = ''
-    if filesToDownmix:
-        for audioStream in os.listdir(demuxLocation):
-            filepath = os.path.join(demuxLocation, audioStream)
-            if os.path.isfile(filepath):
-                if 'TAG:language' in dict_dict_stream[filepath]:
-                    arguments = ''.join([arguments, ' --language 0:', dict_dict_stream[filepath]['TAG:language']])
-                isDefault = 'DISPOSITION:default' in dict_dict_stream[filepath] and dict_dict_stream[filepath]['DISPOSITION:default'] == '1'
-                arguments += f' --default-track-flag 0:{int(isDefault)}'
-                if 'start_time' in dict_dict_stream[filepath] and float(dict_dict_stream[filepath]['start_time']) != float('0.000000'):
-                    delay = int(1000*float(dict_dict_stream[filepath]['start_time']))
-                    arguments += f' --sync 0:{delay}'
-                arguments = f'{arguments} \"{filepath}\"'
-            remuxCommand = f'{mkvmerge} -o \"{remuxedFile}\" -A \"{inputFile}\" {arguments}'
-            try:
-                sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
-            except sp.SubprocessError as error:
-                print(error.stderr)
-    else:
-        os.replace(inputFile, remuxedFile)
-
+    for audioStream in os.listdir(demuxLocation):
+        filepath = os.path.join(demuxLocation, audioStream)
+        if os.path.isfile(filepath):
+            if 'TAG:language' in dict_dict_stream[filepath]:
+                arguments = ''.join([arguments, ' --language 0:', dict_dict_stream[filepath]['TAG:language']])
+            isDefault = 'DISPOSITION:default' in dict_dict_stream[filepath] and dict_dict_stream[filepath]['DISPOSITION:default'] == '1'
+            arguments += f' --default-track-flag 0:{int(isDefault)}'
+            if 'start_time' in dict_dict_stream[filepath] and float(dict_dict_stream[filepath]['start_time']) != float('0.000000'):
+                delay = int(1000*float(dict_dict_stream[filepath]['start_time']))
+                arguments += f' --sync 0:{delay}'
+            arguments = f'{arguments} \"{filepath}\"'
+        remuxCommand = f'{mkvmerge} -o \"{remuxedFile}\" -A \"{inputFile}\" {arguments}'
+        try:
+            sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
+        except sp.SubprocessError as error:
+            print(error.stderr)
+    
 
 def cleanDemuxfolder():
     for content in os.listdir(dir_demux):
@@ -177,21 +177,24 @@ if __name__ == '__main__':
         for filename in files:
             filepath = os.path.join(root, filename)
             remuxLocation = os.path.join(dir_remux, os.path.join(root[len(dir_inputs)+1:]))
-            missingStructure = os.path.split(root[len(dir_inputs)+1:])
+            missingStructure = root[len(dir_inputs)+1:].split(os.sep)
             createFolderStructure(dir_remux, missingStructure)
+            newLocation = os.path.join(remuxLocation, filename)
             if filename.rsplit(sep='.')[-1] == 'mkv':
                 print('\033[92m---------------------------------------------------------------------------------------------------\033[0m')
-                print("".join(["Processing ", filepath]))
+                print("".join(["Processing ", filepath[len(dir_inputs)-8:]]))
                 list_streams = probe(filepath)
                 demuxLocation = os.path.join(dir_demux, os.path.join(root[len(dir_inputs)+1:], filename))
-                dict_dict_stream, filesToDownmix = demux(root, filename, demuxLocation, list_streams)
-                downmix(demuxLocation, dict_dict_stream)
-                inputFile = os.path.join(root, filename)
-                remuxedFile = os.path.join(remuxLocation, filename)
-                remux(inputFile, demuxLocation, remuxedFile, dict_dict_stream, filesToDownmix)
+                dict_dict_stream, needsDownmix = demux(root, filename, demuxLocation, list_streams)
+                if needsDownmix:
+                    downmix(demuxLocation, dict_dict_stream)
+                    remux(filepath, demuxLocation, newLocation, dict_dict_stream)
+                else:
+                    os.replace(filepath, newLocation)
                 del dict_dict_stream
             else:
-                os.replace(filepath, os.path.join(remuxLocation, filename))
+                os.replace(filepath, newLocation)
+
     cleanDemuxfolder()
     print('\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m')
     print(f"se tardo: {dt.datetime.now()-start_time}")
