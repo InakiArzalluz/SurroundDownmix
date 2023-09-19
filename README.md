@@ -2,16 +2,17 @@
 
 Python script to (batch) downmix audio (5.1 -> 2.0) in movies while retaining voice volume
 
- ### Pre-requirements *(Already included for Windows)*
+ ### Pre-requirements
+ + python 3.9+
  + ffmpeg and ffprobe (from [ffmpeg](https://ffmpeg.org/download.html))
- + mkvmerge (from [mkvtoolnix](https://mkvtoolnix.download/downloads.html))
+ + mkvmerge (optional) (from [mkvtoolnix](https://mkvtoolnix.download/downloads.html))
 
  ### Limitations
  + Only takes mkv files as input
  + ~~Doesn't respect the folder structure present inside the input folder~~ 
 
  ### Usage
- + if it's the first time using it, run 'python Remux.py' in a terminal
+ + if it's the first time using it, run 'python main.py' in a terminal
  to create the necessary folders 
  + Drop the files to downmix inside the auto-created 'A-Input' folder
- + run 'python Remux.py' in a terminal
+ + run 'python main.py' in a terminal
