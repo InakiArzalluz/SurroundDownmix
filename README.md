@@ -8,11 +8,11 @@ Python script to (batch) downmix audio (5.1 -> 2.0) in movies while retaining vo
  + mkvmerge (optional) (from [mkvtoolnix](https://mkvtoolnix.download/downloads.html))
 
  ### Limitations
- + Only takes mkv files as input
+ + Only takes mkv files as input (currently)
  + ~~Doesn't respect the folder structure present inside the input folder~~ 
 
  ### Usage
  + if it's the first time using it, run 'python main.py' in a terminal
  to create the necessary folders 
- + Drop the files to downmix inside the auto-created 'A-Input' folder
+ + Drop the movies to process inside the 'A-Input' folder
  + run 'python main.py' in a terminal
