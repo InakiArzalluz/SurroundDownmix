@@ -18,7 +18,7 @@ if __name__ == '__main__':
         except OSError as error:
             if error.errno != 17:
                 print(error)
-    
+
     for root, dirs, files in os.walk(dir_inputs):
         for filename in files:
             missingStructure = root[len(dir_inputs)+1:].split(os.sep)
@@ -28,23 +28,28 @@ if __name__ == '__main__':
             remuxLocation = os.path.join(dir_remux, os.path.join(root[len(dir_inputs)+1:]))
             newLocation = os.path.join(remuxLocation, filename)
 
-            if filename.rsplit(sep='.')[-1] == 'mkv': #Solo estoy limitado si es con mkvmerge
-                print('\033[92m---------------------------------------------------------------------------------------------------\033[0m')
+            # TODO: I'm only limited to mkv if it's using mkvmerge
+            # it should still check the file type, or it would try
+            # to process ANY file
+            if filename.rsplit(sep='.')[-1] == 'mkv':
+
+                print('\033[92m---------------------------------------\033[0m')
                 print("".join(["Processing ", filepath[len(dir_inputs)-8:]]))
 
-                prober_inst = prober(limitedToAudio = True)
-                
+                prober_inst = prober(limitedToAudio=True)
+
                 rem_factory = remuxerFactory()
-                remuxer = rem_factory.getRemuxer('ffmpeg','atscboost')
-                
-                list_streams = prober_inst.probe(filepath)
-                if(tools.hasSurround(list_streams)):
-                    remuxer.remux(filepath, newLocation)
+                remuxer_inst: remuxer = rem_factory.getRemuxer('mkvmerge', 'atscboost')
+
+                list_streams: list[str] = prober_inst.probe(filepath)
+                if (tools.hasSurround(list_streams)):
+                    remuxer_inst.remux(filepath, newLocation)
                 else:
                     os.replace(filepath, newLocation)
             else:
                 os.replace(filepath, newLocation)
-    print('\033[92m--------------------------------------------- DONE ---------------------------------------------\033[0m')
+
+    print('\033[92m----------------- DONE -----------------\033[0m')
     if platform.system() == 'Windows':
         os.system('pause')
     else:

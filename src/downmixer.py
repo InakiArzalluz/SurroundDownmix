@@ -1,6 +1,6 @@
 import subprocess as sp
-import multiprocessing as mp
 import os
+
 
 class downmixer:
 
@@ -24,5 +24,5 @@ class downmixer:
             os.remove(filepath)
         except sp.SubprocessError as error:
             print(error.stderr)
-        
+
         return f'{outputFileNoExt}_downmix.{codec}'

@@ -1,6 +1,7 @@
 import os
 import shutil as sh
 
+
 class tools:
 
     @staticmethod
@@ -24,7 +25,7 @@ class tools:
                 sh.rmtree(contentPath)
 
     @staticmethod
-    def hasSurround(streams: list[str]):
+    def hasSurround(streams: list[str]) -> bool:
         for stream in streams:
             stream_dict = {}
             infos = stream.rsplit(sep='\n')
