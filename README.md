@@ -2,7 +2,7 @@
 
 Python script to (batch) downmix audio (5.1 -> 2.0) in movies while retaining voice volume
 
- ### Pre-requirements
+ ### Requirements
  + python 3.9+
  + ffmpeg and ffprobe (from [ffmpeg](https://ffmpeg.org/download.html))
  + mkvmerge (optional) (from [mkvtoolnix](https://mkvtoolnix.download/downloads.html))
