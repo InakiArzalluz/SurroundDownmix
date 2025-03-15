@@ -1,20 +1,20 @@
 import os
-from src.tools import tools
-from src.prober import prober
-from src.demuxer import demuxer
-from src.downmixer import downmixer
-from src.muxer import muxer
+from src.tools import Tools
+from src.prober import Prober
+from src.demuxer import Demuxer
+from src.downmixer import Downmixer
+from src.muxer import Muxer
 
 
-class remuxer:
+class Remuxer:
     """
 
     """
-    def __init__(self, prober: prober, demuxer: demuxer, downmixer: downmixer, muxer: muxer):
-        self.__prober_inst: prober = prober
-        self.__downmixer_inst: downmixer = downmixer
-        self.__demuxer_inst: demuxer = demuxer
-        self.__muxer_inst: muxer = muxer
+    def __init__(self, prober: Prober, demuxer: Demuxer, downmixer: Downmixer, muxer: Muxer):
+        self.__prober_inst: Prober = prober
+        self.__downmixer_inst: Downmixer = downmixer
+        self.__demuxer_inst: Demuxer = demuxer
+        self.__muxer_inst: Muxer = muxer
 
     def remux(self, inputfile_path: str, remuxfile_path: str):
         """
@@ -49,4 +49,4 @@ class remuxer:
         self.__muxer_inst.mux(inputfile_path, remuxfile_path, dict_dict_stream)
 
         del dict_dict_stream
-        tools.cleanFolder(dir_demux)
+        Tools.cleanFolder(dir_demux)

@@ -1,7 +1,7 @@
 import subprocess as sp
 
 
-class prober:
+class Prober:
 
     __streamSuffix = '[/STREAM]\n'
 
@@ -20,8 +20,22 @@ class prober:
         list_Stdout = runResult.stdout.rsplit(sep='[STREAM]\n')
         list_streams = []
         for parte in list_Stdout:
-            parte = parte.removesuffix(prober.__streamSuffix)
+            parte = parte.removesuffix(Prober.__streamSuffix)
             if parte != '':
                 list_streams += parte,
         del list_Stdout
         return list_streams
+    
+    def has_surround(self, filepath: str) -> bool:
+        streams: list[str] = self.probe(filepath)
+        for stream in streams:
+            stream_dict = {}
+            infos = stream.rsplit(sep='\n')
+            infos.remove('')
+            for info in infos:
+                dict_entry = info.rsplit(sep='=')
+                stream_dict[dict_entry[0]] = dict_entry[1]
+
+            if stream_dict['codec_type'] == 'audio' and stream_dict['channels'] == '6':
+                return True
+        return False

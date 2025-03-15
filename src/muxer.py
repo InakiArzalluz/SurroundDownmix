@@ -1,13 +1,13 @@
 import subprocess as sp
 
 
-class muxer:
+class Muxer:
 
     def mux(self, inputFile, remuxedFile, dict_dict_stream):
         pass
 
 
-class mkvmerge_mux(muxer):
+class Mkvmerge_Muxer(Muxer):
 
     def mux(self, inputFile, remuxedFile, dict_dict_stream):
         delay = arguments = ''
@@ -31,7 +31,7 @@ class mkvmerge_mux(muxer):
             print(error.stderr)
 
 
-class ffmpeg_mux(muxer):
+class FFMPEG_Muxer(Muxer):
 
     def __copyFromInput(self, inputFile, dict_dict_stream) -> list[str]:
         maps = metadata = imports = dispositions = ''

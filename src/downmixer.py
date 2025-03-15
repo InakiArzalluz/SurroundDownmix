@@ -2,7 +2,7 @@ import subprocess as sp
 import os
 
 
-class downmixer:
+class Downmixer:
 
     def __init__(self, algorithm: str):
         self.__downmixAlgorithm: str = algorithm

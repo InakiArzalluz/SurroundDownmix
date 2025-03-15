@@ -2,19 +2,15 @@ import subprocess as sp
 import os
 
 
-class demuxer:
-
-    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> tuple[dict[str, dict[str,str]]]:
+class Demuxer:
+    ''' returns dict with: { streamFilename : dict with info about that stream } '''
+    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str,str]]:
         pass
 
 
-class mkvmerge_demux(demuxer):
+class Mkvmerge_Demuxer(Demuxer):
 
-    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> tuple[dict[str, dict[str, str]]]:
-        #  dict_dict_stream{
-        #    key = streamFilename
-        #    value = dict with info about that stream
-        #  }
+    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str, str]]:
         dict_dict_stream = {}
         filename = os.path.basename(filepath)
         streams_arg: str = ''
@@ -49,12 +45,12 @@ class mkvmerge_demux(demuxer):
         return dict_dict_stream
 
 
-class ffmpeg_demux(demuxer):
+class FFMPEG_Demuxer(Demuxer):
 
     # mapping from codec_name to file extension
     __extensions_dict = {'h264': 'mp4', 'subrip': 'srt', 'mjpeg': 'jpg'}
 
-    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> tuple[dict[str, dict[str, str]]]:
+    def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str, str]]:
         streams = ''
         # attachments = ''
         dict_dict_stream = {}
@@ -79,9 +75,9 @@ class ffmpeg_demux(demuxer):
                 file2Write += '_' + stream_dict['TAG:language']
 
             codec = stream_dict['codec_name']
-            if codec in ffmpeg_demux.__extensions_dict:
+            if codec in FFMPEG_Demuxer.__extensions_dict:
                 # por h264, subrip, etc.
-                file2Write += '.'+ffmpeg_demux.__extensions_dict[codec]
+                file2Write += '.'+FFMPEG_Demuxer.__extensions_dict[codec]
             else:
                 file2Write += '.'+codec
 

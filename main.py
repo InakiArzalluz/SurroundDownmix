@@ -1,9 +1,9 @@
 import os
 import platform
-from src.tools import tools
-from src.prober import prober
-from src.remuxer import remuxer
-from src.remuxerFactory import remuxerFactory
+from src.tools import Tools
+from src.prober import Prober
+from src.remuxer import Remuxer
+from src.remuxerFactory import RemuxerFactory
 
 parentFolder = os.getcwd()
 dir_inputs = os.path.join(parentFolder, 'A-Inputs')
@@ -19,10 +19,14 @@ if __name__ == '__main__':
             if error.errno != 17:
                 print(error)
 
+    prober_inst = Prober(limitedToAudio=True)
+    rem_factory = RemuxerFactory()
+    remuxer_inst: Remuxer = rem_factory.getRemuxer('mkvmerge', 'atscboost')
+
     for root, dirs, files in os.walk(dir_inputs):
         for filename in files:
             missingStructure = root[len(dir_inputs)+1:].split(os.sep)
-            tools.createFolderStructure(dir_remux, missingStructure)
+            Tools.createFolderStructure(dir_remux, missingStructure)
 
             filepath = os.path.join(root, filename)
             remuxLocation = os.path.join(dir_remux, os.path.join(root[len(dir_inputs)+1:]))
@@ -32,24 +36,17 @@ if __name__ == '__main__':
             # it should still check the file type, or it would try
             # to process ANY file
             if filename.rsplit(sep='.')[-1] == 'mkv':
-
-                print('\033[92m---------------------------------------\033[0m')
+                print('---------------------------------------')
                 print("".join(["Processing ", filepath[len(dir_inputs)-8:]]))
 
-                prober_inst = prober(limitedToAudio=True)
-
-                rem_factory = remuxerFactory()
-                remuxer_inst: remuxer = rem_factory.getRemuxer('mkvmerge', 'atscboost')
-
-                list_streams: list[str] = prober_inst.probe(filepath)
-                if (tools.hasSurround(list_streams)):
+                if (prober_inst.has_surround(filepath)):
                     remuxer_inst.remux(filepath, newLocation)
                 else:
                     os.replace(filepath, newLocation)
             else:
                 os.replace(filepath, newLocation)
 
-    print('\033[92m----------------- DONE -----------------\033[0m')
+    print('----------------- DONE -----------------')
     if platform.system() == 'Windows':
         os.system('pause')
     else:

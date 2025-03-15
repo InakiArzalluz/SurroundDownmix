@@ -2,7 +2,7 @@ import os
 import shutil as sh
 
 
-class tools:
+class Tools:
 
     @staticmethod
     def createFolderStructure(root: str, missing):
@@ -23,17 +23,3 @@ class tools:
                 os.remove(contentPath)
             else:
                 sh.rmtree(contentPath)
-
-    @staticmethod
-    def hasSurround(streams: list[str]) -> bool:
-        for stream in streams:
-            stream_dict = {}
-            infos = stream.rsplit(sep='\n')
-            infos.remove('')
-            for info in infos:
-                dict_entry = info.rsplit(sep='=')
-                stream_dict[dict_entry[0]] = dict_entry[1]
-
-            if stream_dict['codec_type'] == 'audio' and stream_dict['channels'] == '6':
-                return True
-        return False
