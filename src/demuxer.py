@@ -3,8 +3,8 @@ import os
 
 
 class Demuxer:
-    ''' returns dict with: { streamFilename : dict with info about that stream } '''
     def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str,str]]:
+        ''' returns dict with: { streamFilename : dict with info about that stream } '''
         pass
 
 

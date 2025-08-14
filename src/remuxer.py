@@ -8,9 +8,6 @@ from src.muxer import Muxer
 
 
 class Remuxer:
-    """
-
-    """
     def __init__(self, prober: Prober, demuxer: Demuxer, downmixer: Downmixer, muxer: Muxer, logger: Callable[[str], None]):
         self.__prober_inst: Prober = prober
         self.__downmixer_inst: Downmixer = downmixer
