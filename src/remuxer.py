@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import os
 from src.tools import Tools
 from src.prober import Prober
@@ -10,11 +11,12 @@ class Remuxer:
     """
 
     """
-    def __init__(self, prober: Prober, demuxer: Demuxer, downmixer: Downmixer, muxer: Muxer):
+    def __init__(self, prober: Prober, demuxer: Demuxer, downmixer: Downmixer, muxer: Muxer, logger: Callable[[str], None]):
         self.__prober_inst: Prober = prober
         self.__downmixer_inst: Downmixer = downmixer
         self.__demuxer_inst: Demuxer = demuxer
         self.__muxer_inst: Muxer = muxer
+        self.__logger : Callable[[str], None] = logger
 
     def remux(self, inputfile_path: str, remuxfile_path: str):
         """
@@ -32,10 +34,10 @@ class Remuxer:
                 print(error)
 
         list_streams = self.__prober_inst.probe(inputfile_path)
-        print('Demuxing')
+        self.__logger('        Demuxing')
         dict_dict_stream = self.__demuxer_inst.demux(inputfile_path, dir_demux, list_streams)
 
-        print("Downmixing")
+        self.__logger("        Downmixing")
         # TODO: Concurrency
         keys = list(dict_dict_stream.keys()).copy()
         for key in keys:
@@ -45,7 +47,7 @@ class Remuxer:
                 dict_dict_stream[newkey] = dict_dict_stream[key]
                 del dict_dict_stream[key]
 
-        print("Muxing")
+        self.__logger("        Muxing")
         self.__muxer_inst.mux(inputfile_path, remuxfile_path, dict_dict_stream)
 
         del dict_dict_stream
