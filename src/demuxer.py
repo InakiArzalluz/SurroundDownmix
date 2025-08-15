@@ -1,8 +1,10 @@
+from abc import ABC, abstractmethod
 import subprocess as sp
 import os
 
 
-class Demuxer:
+class Demuxer(ABC):
+    @abstractmethod
     def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str,str]]:
         ''' returns dict with: { streamFilename : dict with info about that stream } '''
         pass
@@ -11,7 +13,7 @@ class Demuxer:
 class Mkvmerge_Demuxer(Demuxer):
 
     def demux(self, filepath: str, demuxLocation: str, list_streams: list[str]) -> dict[str, dict[str, str]]:
-        dict_dict_stream = {}
+        dict_dict_stream : dict[str, dict[str, str]] = {}
         filename = os.path.basename(filepath)
         streams_arg: str = ''
         for stream in list_streams:
@@ -40,7 +42,7 @@ class Mkvmerge_Demuxer(Demuxer):
         try:
             sp.run(ffmpegCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
-            print(error.stderr)
+            print(error)
 
         return dict_dict_stream
 

@@ -28,7 +28,7 @@ class Mkvmerge_Muxer(Muxer):
         try:
             sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
-            print(error.stderr)
+            print(error)
 
 
 class FFMPEG_Muxer(Muxer):
@@ -76,12 +76,12 @@ class FFMPEG_Muxer(Muxer):
                 dict_stream = dict_dict_stream[key]
                 metadataType = dict_stream['codec_type'][0]
                 if ('TAG:language' in dict_stream):
-                    typecounter: str = typeCounter_dict[metadataType]
+                    typecounter: str = str(typeCounter_dict[metadataType])
                     lang: str = dict_stream['TAG:language']
                     metadata += f' -metadata:s:{metadataType}:{typecounter} language={lang}'
 
                 if ('DISPOSITION:default' in dict_stream and dict_stream['DISPOSITION:default'] == '1'):
-                    typecounter: str = typeCounter_dict[metadataType]
+                    typecounter: str = str(typeCounter_dict[metadataType])
                     dispositions += f' -disposition:{metadataType}:{typecounter} +default'
 
                 if ('DISPOSITION:forced' in dict_stream and dict_stream['DISPOSITION:forced'] == '1'):
@@ -94,4 +94,4 @@ class FFMPEG_Muxer(Muxer):
         try:
             sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
-            print(error.stderr)
+            print(error)

@@ -23,6 +23,6 @@ class Downmixer:
             sp.run(downmixCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
             os.remove(filepath)
         except sp.SubprocessError as error:
-            print(error.stderr)
+            print(error)
 
         return f'{outputFileNoExt}_downmix.{codec}'

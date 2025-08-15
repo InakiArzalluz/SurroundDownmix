@@ -14,7 +14,6 @@ CONFIG_FILE = "config.json"
 ctk.set_appearance_mode("dark")       # "light", "dark", or "system"
 ctk.set_default_color_theme("blue")   # "blue", "green", "dark-blue"
 
-
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -23,10 +22,10 @@ class App(ctk.CTk):
         self.geometry("780x600")
         self.minsize(700, 550)
 
-        self.input_folder = None
-        self.output_folder = None
-        self.selected_algorithm = None
-        self.selected_muxer = None
+        self.input_folder : str = os.path.join(os.getcwd(), 'Inputs')
+        self.output_folder : str = os.path.join(os.getcwd(), 'Outputs')
+        self.selected_algorithm : str = next(iter(RemuxerFactory.getalgorithms().keys()))
+        self.selected_muxer : str = next(iter(RemuxerFactory.getremuxers().keys()))
         self.processing_thread = None
         self.stop_event = threading.Event()
 
@@ -38,11 +37,11 @@ class App(ctk.CTk):
         self.header_label.pack(pady=(15, 0))
         self.header_label = ctk.CTkLabel(self, text="Easily batch downmix from 5.1 to 2.0!", font=ctk.CTkFont(size=12, weight="normal"), text_color='#777')
         self.header_label.pack(pady=(0, 10))
+
         # Folder selectors
         self.create_folder_selector("Input Folder", self.select_input, initial_path=self.input_folder)
         self.create_folder_selector("Output Folder", self.select_output, initial_path=self.output_folder)
 
-        # ------------------------------------------------------------------------------------------------------------------------------- #
         # Muxer selector frame
         muxer_frame = ctk.CTkFrame(self)
         muxer_frame.pack(fill="x", padx=20, pady=5)
@@ -51,14 +50,10 @@ class App(ctk.CTk):
         # Populate dropdown from RemuxerFactory
         factory = RemuxerFactory()
         self.muxers = [muxer for muxer, isPresent in factory.getremuxers().items() if isPresent]
-
         self.muxer_menu = ctk.CTkOptionMenu(muxer_frame, values=self.muxers, command=self.set_muxer)
         self.muxer_menu.pack(side="right", padx=10)
-
-        initial_muxer = self.selected_muxer if self.selected_muxer in self.muxers else self.muxers[0]
-        self.muxer_menu.set(initial_muxer)
+        self.muxer_menu.set(self.selected_muxer)
         
-        # ------------------------------------------------------------------------------------------------------------------------------- #
         # Algorithm selector frame
         algo_frame = ctk.CTkFrame(self)
         algo_frame.pack(fill="x", padx=20, pady=5)
@@ -70,13 +65,10 @@ class App(ctk.CTk):
         self.algodescriptions = algorithms
         self.algo_menu = ctk.CTkOptionMenu(algo_frame, values=self.algorithms, command=self.set_algorithm)
         self.algo_menu.pack(side="right", padx=10)
-
-        initial_algo = self.selected_algorithm if self.selected_algorithm in self.algorithms else self.algorithms[0]
-        self.algo_menu.set(initial_algo)
-        self.selected_algorithm = initial_algo
+        self.algo_menu.set(self.selected_algorithm)
 
         # Algorithm description label
-        self.algo_desc_label = ctk.CTkLabel(self, text=self.algodescriptions.get(initial_algo, ""), wraplength=600, text_color="gray")
+        self.algo_desc_label = ctk.CTkLabel(self, text=self.algodescriptions.get(self.selected_algorithm, ""), wraplength=600, text_color="gray")
         self.algo_desc_label.pack(fill="x", padx=30, pady=(0, 10))
 
         # File count label
@@ -212,7 +204,7 @@ class App(ctk.CTk):
 
         prober_inst = Prober(limitedToAudio=True)
         rem_factory = RemuxerFactory()
-        remuxer_inst: Remuxer = rem_factory.getRemuxer('ffmpeg', self.selected_algorithm, self.log)
+        remuxer_inst: Remuxer = rem_factory.getRemuxer(self.selected_muxer, self.selected_algorithm, self.log)
 
         for idx, (root_dir, filename) in enumerate(files_to_process, start=1):
             if self.stop_event.is_set():

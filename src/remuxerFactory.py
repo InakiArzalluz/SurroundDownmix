@@ -46,18 +46,20 @@ class RemuxerFactory:
 
         return Remuxer(prober_inst, demuxer_inst, downmixer_inst, muxer_inst, logger)
 
-    def getremuxers(self) -> dict[str, bool]:
+    @staticmethod
+    def getremuxers() -> dict[str, bool]:
         muxers : dict[str, bool] = {'ffmpeg' : True}
         try:
             sp.run('mkvmerge -q -V', capture_output=True, shell=True, check=True, encoding='utf-8')
             muxers['mkvmerge'] = True
-        except Exception as e:
+        except Exception:
             # TODO: it's not in path, but it might be in the default install location (C:\Program Files\MKVToolNix)
             muxers['mkvmerge'] = False
         return muxers
 
-    def getalgorithms(self) -> dict[str, str]:
-        algorithms = {}
+    @staticmethod
+    def getalgorithms() -> dict[str, str]:
+        algorithms: dict[str, str] = {}
         algorithms['atsc'] = 'ffmpeg default algorithm'
         algorithms['atscboost'] = 'atsc, plus voice volume boost'
         algorithms['lfe'] = 'doesn\'t discard the LFE channel'
