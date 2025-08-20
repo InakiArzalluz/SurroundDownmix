@@ -1,18 +1,10 @@
-# SurroundDownmix
+# MKV Downmixer
 
-Python script to (batch) downmix audio (5.1 -> 2.0) in movies while retaining voice volume
+Simple python app to batch downmix audio (5.1 -> 2.0) in movies while retaining or even boosting voice volume.
+
+![image info](./imgs/downmix.webp)
 
  ### Requirements
  + python 3.9+
- + ffmpeg and ffprobe (from [ffmpeg](https://ffmpeg.org/download.html))
- + mkvmerge (optional) (from [mkvtoolnix](https://mkvtoolnix.download/downloads.html))
-
- ### Limitations
- + Only takes mkv files as input (currently)
- + ~~Doesn't respect the folder structure present inside the input folder~~ 
-
- ### Usage
- + if it's the first time using it, run 'python main.py' in a terminal
- to create the necessary folders 
- + Drop the movies to process inside the 'A-Input' folder
- + run 'python main.py' in a terminal
+ + ffmpeg and ffprobe in path – environment variable – from [ffmpeg](https://ffmpeg.org/download.html)
+ + mkvmerge (optional, but recommended) in path – environment variable – from [mkvtoolnix](https://mkvtoolnix.download/downloads.html)
