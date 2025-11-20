@@ -90,7 +90,7 @@ class FFMPEG_Muxer(Muxer):
                 typeCounter_dict[metadataType] += 1
                 counter += 1
 
-        remuxCommand = 'ffmpeg' + imports + ' -c copy' + maps + metadata + dispositions + ' \"'+remuxedFile+'\"'
+        remuxCommand = 'ffmpeg' + imports + ' -c copy' + maps + metadata + dispositions + ' -max_interleave_delta 0 \"'+remuxedFile+'\"'
         try:
             sp.run(remuxCommand, capture_output=True, shell=True, check=True, encoding='utf-8')
         except sp.SubprocessError as error:
