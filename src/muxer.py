@@ -1,8 +1,9 @@
+from abc import ABC, abstractmethod
 import subprocess as sp
 
 
-class Muxer:
-
+class Muxer(ABC):
+    @abstractmethod
     def mux(self, inputFile, remuxedFile, dict_dict_stream):
         pass
 
